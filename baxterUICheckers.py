@@ -48,7 +48,7 @@ class Game:
             if self.turn == self.player:
                 # get player's move
                 if len(legal) > 0:
-                    move = get_user_move(legal)                    
+                    move = get_user_move(legal, PLAYERS[self.turn])                    
                     self.makeMove(move)
                 else:
                     print("No legal moves available, skipping turn...")
@@ -74,7 +74,7 @@ class Game:
                     #################################
                     # Call Baxter move routine here #
                     #################################
-                    robot_move(choice) # Note, also takes pieces as necesary
+                    robot_move(choice, PLAYERS[self.turn]) # Note, also takes pieces as necesary
                     #print(move.start, move.end, move.jump) #debug
                     #print (move.jumpOver) # debug
                     
@@ -481,15 +481,8 @@ class Board:
             [0,-1,0,-1,0,-1,0,-1]
         ]
 
-
-def robot_move(move):
-    global playr
-    print ("Player moving = ", playr)
+def robot_move(move, colour):
     print ("Robot moving")
-    #print move.start
-    #print move.end
-    #print move.jump
-    #print move.jumpOver
     # Translate to robot placenames
     start = "ABCDEFGH"[move.start[1]] + "76543210"[move.start[0]]
     end = "ABCDEFGH"[move.end[1]] + "76543210"[move.end[0]]
@@ -500,11 +493,12 @@ def robot_move(move):
         for piece in move.jumpOver:
             takePiece = "ABCDEFGH"[piece[1]] + "76543210"[piece[0]]
             print ("Taking pieces ", takePiece)
-            bxd.take_piece(takePiece)
+            bxd.take_piece(takePiece, colour)
     bxd.move_home()
     return
 
-def get_user_move(legal):
+
+def get_user_move(legal, colour):
     # legal is list of legal moves
     #Convert legal to robot coords
     robot_legal = [0] * len(legal)
@@ -519,25 +513,23 @@ def get_user_move(legal):
     
     ret = bxd.get_move(robot_legal)
     print ("&&&" , ret)
+    move = None
     for i in legal:
         if "ABCDEFGH"[i.start[1]] == ret[0][0] and "76543210"[i.start[0]] == ret[0][1] and "ABCDEFGH"[i.end[1]] == ret[1][0] and "76543210"[i.end[0]] == ret[1][1]:
-            return i
+            move = i
         else:
-            print("ssfd")
-    return None
+            print("error")
+    if move.jump==True:
+        for piece in move.jumpOver:
+            takePiece = "ABCDEFGH"[piece[1]] + "76543210"[piece[0]]
+            print ("Taking pieces ", takePiece)
+            bxd.take_piece(takePiece, colour)
+    bxd.move_home()
+    
+    return move
 
 
-## Callbacks for BaxUI
-def setPlayer(selected=0):
-    global playr
-    print ("set player " , selected)
-    bxd.BaxUI.runit=False
-    playr = selected
 
-def calibrate_board (selected=0):
-    # Dumps the parameter returned by the callback
-    # Calls the baxter calibrate routine
-    bxd.calibrate_board()
     
 
 def main():
