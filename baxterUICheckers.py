@@ -19,7 +19,8 @@ For use with BAxter Robot Draughts Game
 
 # Load Baxter Robot actions
 import baxterDo_Dummy as bxd
-
+import getch
+from copy import deepcopy
 
 BOARD_SIZE = 8
 NUM_PLAYERS = 12
@@ -47,9 +48,7 @@ class Game:
             if self.turn == self.player:
                 # get player's move
                 if len(legal) > 0:
-                    #choice = random.randint(0,len(legal)-1)
-                    #move = legal[choice]
-                    move = self.getMove(legal)                    
+                    move = get_user_move(legal)                    
                     self.makeMove(move)
                 else:
                     print("No legal moves available, skipping turn...")
@@ -101,33 +100,7 @@ class Game:
             self.remaining[1-self.turn] -= len(move.jumpOver)
             print("Removed " + str(len(move.jumpOver)) + " " + PLAYERS[1 - self.turn] + " pieces")
   
-    def getMove(self, legal):
-        move = -1
-        # repeats until player picks move on the list
-        while move not in range(len(legal)):
-            # Debug: List valid moves:
-            #print("Valid Moves: ")
-            #for i in range(len(legal)):
-            #    print str(i+1)+": ",#end='')
-            #    print str(legal[i].start)+" "+str(legal[i].end)
-            ####################################################
-            # Get user input - from Baxter IF                 #
-            ####################################################
-            usr_input=get_user_move(legal)
-            print ("usr_input = ", usr_input)
-            # Comment out when robot is supplying user move
-            #usr_input = raw_input("Pick a move: ") 
-                        
-            # stops error caused when user inputs nothing
-            if usr_input == '':
-                 move = 0  
-            else:
-                move = int(usr_input) - 1            
-            #Check move ok
-            if move not in range(len(legal)):
-                print("Illegal move")
-        print("Legal move")
-        return (legal[move])
+
         
     # returns a boolean value determining if game finished
     def gameOver(self, board):
@@ -508,22 +481,7 @@ class Board:
             [0,-1,0,-1,0,-1,0,-1]
         ]
 
-### for testing
-##    def setDefaultBoard(self):
-##        # reset board
-##        # -1 = empty, 0=black, 1=white
-##        self.boardState = [
-##            [-1,1,-1,-1,-1,-1,-1,-1],
-##            [-1,-1,1,-1,1,-1,1,-1],
-##            [-1,-1,-1,-1,-1,1,-1,-1],
-##            [0,-1,0,-1,1,-1,-1,-1],
-##            [-1,0,-1,-1,-1,0,-1,-1],
-##            [-1,-1,-1,-1,0,-1,-1,-1],
-##            [-1,-1,-1,-1,-1,-1,0,-1],
-##            [-1,-1,-1,-1,-1,-1,-1,-1]
-##        ]            
 
-## Robot move functions
 def robot_move(move):
     global playr
     print ("Player moving = ", playr)
@@ -549,23 +507,24 @@ def robot_move(move):
 def get_user_move(legal):
     # legal is list of legal moves
     #Convert legal to robot coords
-    index = 0
     robot_legal = [0] * len(legal)
-    for m in legal:
+    for m in range(len(legal)):
         #print " Start =",m.start, " End=", m.end
-        start = "ABCDEFGH"[m.start[1]] + "76543210"[m.start[0]]
-        end = "ABCDEFGH"[m.end[1]] + "76543210"[m.end[0]]
-        robot_legal[index]= [start, end]
-        index = index + 1
-        print (index , ": " , robot_legal[index-1] )
+        start = "ABCDEFGH"[legal[m].start[1]] + "76543210"[legal[m].start[0]]
+        end = "ABCDEFGH"[legal[m].end[1]] + "76543210"[legal[m].end[0]]
+        robot_legal[m]= [start, end]
  
     #usr_input = bxd.showList(mainmenu) 
     #print "Move for you = ", usr_input
     
     ret = bxd.get_move(robot_legal)
-    print ("&&&" , ret )
-    bxd.move_piece(ret[0], ret[1])
-    return ret + 1
+    print ("&&&" , ret)
+    for i in legal:
+        if "ABCDEFGH"[i.start[1]] == ret[0][0] and "76543210"[i.start[0]] == ret[0][1] and "ABCDEFGH"[i.end[1]] == ret[1][0] and "76543210"[i.end[0]] == ret[1][1]:
+            return i
+        else:
+            print("ssfd")
+    return None
 
 
 ## Callbacks for BaxUI
@@ -581,7 +540,6 @@ def calibrate_board (selected=0):
     bxd.calibrate_board()
     
 
-playr=0
 def main():
     bxd.init() # Initialise ROS node - only needs to be done once!
     print ("reset")
@@ -594,7 +552,7 @@ def main():
             break
         else:
             print("Invalid Choice, try again..")
-    game = Game(playr)
+    game = Game(player)
     game.run()
     
 if __name__ == "__main__":
