@@ -43,9 +43,9 @@ class Game:
         while not (self.gameOver(self.board)):
             self.board.drawBoardState()
             print("Current Player: " + PLAYERS[self.turn])
+            legal = self.board.calcLegalMoves(self.turn)
             if self.turn == self.player:
                 # get player's move
-                legal = self.board.calcLegalMoves(self.turn)
                 if len(legal) > 0:
                     #choice = random.randint(0,len(legal)-1)
                     #move = legal[choice]
@@ -54,7 +54,6 @@ class Game:
                 else:
                     print("No legal moves available, skipping turn...")
             else:
-                legal = self.board.calcLegalMoves(self.turn)
                 print("Valid Moves: ")
                 for i in range(len(legal)):
                     print (str(i+1) + ": ", end='')
@@ -377,7 +376,7 @@ class Board:
             if cell[1] != BOARD_SIZE - 1:
                 #empty, regular move
                 if self.boardState[cell[0] + next][cell[1] + 1]==-1 and not hasJumps:
-                    temp = Move((cell[0],cell[1]), (cell[0] + next,cell[1] + 1)) 
+                    temp = Move((cell[0], cell[1]), (cell[0] + next, cell[1] + 1)) 
                     legalMoves.append(temp)
                 # has enemy, can jump it?
                 elif self.boardState[cell[0] + next][cell[1] + 1] == 1 - player:
@@ -584,38 +583,17 @@ def calibrate_board (selected=0):
 
 playr=0
 def main():
-    global playr
-    """
-    print("Play as: ")
-    print("(0) Black - Default")
-    print("(1) White")
-    playr = raw_input("Enter 0 or 1:")
-    print playr
-    if playr == "":
-        playr = 0
-    else:
-        if playr == "0":
-            playr = 0
-        else:
-            playr = 1
-    """
-    global playr
     bxd.init() # Initialise ROS node - only needs to be done once!
     print ("reset")
     bxd.move_home()
-    playr = 0
-    #bxd.BaxUI.setPlayer = setPlayer
-    #bxd.BaxUI.calibrate = calibrate_board
-    mainmenu = [["Play as Black","setPlayer"],
-                ["Play as White","setPlayer"],
-                ["Calibrate Board","calibrate" ]]
-    print ("Use Navigator on Right Arm to select action")
-    #while playr > 1:
-    #playr = bxd.BaxUI.showList(mainmenu, 0)
-    print ("You are Player", playr)
-    print
-    #while not (playr == 0 or playr == 1):
-    #    playr = int(input("Invalid Choice, please try again: "))
+    print("Type 0 to play Black ot 1 to play White")
+    while True:
+        player = int(getch.getch())
+        print(player)
+        if player == 0 or player == 1:
+            break
+        else:
+            print("Invalid Choice, try again..")
     game = Game(playr)
     game.run()
     
