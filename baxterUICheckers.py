@@ -24,7 +24,7 @@ from copy import deepcopy
 
 BOARD_SIZE = 8
 NUM_PLAYERS = 12
-DEPTH_LIMIT = 8
+DEPTH_LIMIT = 5
 # the players array extends to many other arrays in the program
 # in these arrays, 0 will refer to black and 1 to white
 PLAYERS = ["Black", "White"]
@@ -41,6 +41,7 @@ class Game:
         self.player = player
         self.turn = 0
     def run(self):
+        move = None 
         while not (self.gameOver(self.board)):
             self.board.drawBoardState()
             print("Current Player: " + PLAYERS[self.turn])
@@ -74,10 +75,12 @@ class Game:
                     #################################
                     # Call Baxter move routine here #
                     #################################
-                    robot_move(choice, PLAYERS[self.turn]) # Note, also takes pieces as necesary
-                    #print(move.start, move.end, move.jump) #debug
-                    #print (move.jumpOver) # debug
-                    
+                    move = robot_move(choice, PLAYERS[self.turn]) # Note, also takes pieces as necesary
+            print(move.start, move.end, move.jump) #debug
+            print (move.jumpOver) # debug
+            if move.end[0] == 0 or move.end[0] == 7:
+                print("King added")
+                self.board.kingPos[self.turn].append(move.end)
             # switch player after move
             self.turn = 1 - self.turn
         print("Game OVER")
@@ -96,7 +99,6 @@ class Game:
 
     def makeMove(self, move):
         self.board.boardMove(move, self.turn) # Update board
-        
         if move.jump:
             self.remaining[1-self.turn] -= len(move.jumpOver)
             print("Removed " + str(len(move.jumpOver)) + " " + PLAYERS[1 - self.turn] + " pieces")
@@ -120,24 +122,20 @@ class Game:
         score = [0,0]
         # black pieces
         for cell in range(len(board.currPos[0])):
+            # If King - 5 pts
             if cell in board.kingPos[0]:
                 score[0] += 5
-            # black pieces at end of board - 2 pts
-            elif board.currPos[0][cell][0] == 0:
-                score[0] += 2
-            # black pieces not at end - 1 pt
+            # black pieces not at end - 2 pt
             else:
-                score[0] += 1
+                score[0] += 2
         # white pieces
         for cell in range(len(board.currPos[1])):
+            # If King - 5 pts
             if cell in board.kingPos[1]:
                 score[1] += 5
-            # white pieces at end of board - 2 pts
-            if board.currPos[1][cell][0] == BOARD_SIZE-1:
-                score[1] += 2
-            # white pieces not at end - 1 pt
+            # white pieces not at end - 2 pt
             else:
-                score[1] += 1
+                score[1] += 2
         return score
         
     # state = board, player
@@ -241,14 +239,13 @@ class Game:
     # returns a utility value for a non-terminal node
     # f(x) = 5(player piece in end)+3(player not in end)-7(opp in end)-3(opp not in end)
     def evaluation_function(self, board, currPlayer):
-        blk_far, blk_home_half, blk_opp_half = 0,0,0
-        wt_far, wt_home_half, wt_opp_half = 0,0,0 
+        blk_king, blk_home_half, blk_opp_half = 0,0,0
+        wt_king, wt_home_half, wt_opp_half = 0,0,0
         # black's pieces
         for cell in range(len(board.currPos[0])):
-            # player pieces at end of board
-            if board.currPos[0][cell][0] == BOARD_SIZE-1:
-                blk_far += 1
-            # player pieces in opponents end
+            # check pieces for king
+            if board.currPos[0][cell] in board.kingPos[0]:
+                blk_king +=1
             # change to "print 'yes' if 0 < x < 0.5 else 'no'"
             elif BOARD_SIZE/2 <= board.currPos[0][cell][0] < BOARD_SIZE:
                 blk_opp_half += 1
@@ -256,16 +253,16 @@ class Game:
                 blk_home_half += 1
         # white's pieces
         for cell in range(len(board.currPos[1])):
-            # opp pieces at end of board 
-            if board.currPos[1][cell][0] == 0:
-                wt_far += 1
+            # check pieces for king
+            if board.currPos[1][cell] in board.kingPos[1]:
+                wt_king += 1
             # opp pieces not at own end
             elif 0 <= board.currPos[1][cell][0] < BOARD_SIZE/2:
                 wt_opp_half += 1
             else:
                 wt_home_half += 1
-        white_score = (7 * wt_far) + (5 * wt_opp_half)+ (3 * wt_home_half)
-        black_score = (7 * blk_far) + (5 * blk_opp_half)+ (3 * blk_home_half)
+        white_score = (7 * wt_king) + (5 * wt_opp_half)+ (3 * wt_home_half)
+        black_score = (7 * blk_king) + (5 * blk_opp_half)+ (3 * blk_home_half)
         if currPlayer == 0:
             return (black_score - white_score)
         else:
@@ -317,18 +314,18 @@ class Board:
         if kingBlack != []:
             self.kingPos[0] = kingBlack
         else:
-            self.kingPos[0] = self.kingPos(0)
+            self.kingPos[0] = self.calcKingPos(0)
         if currWhite != []:
             self.kingPos[1] = kingWhite
         else:
-            self.kingPos[1] = self.kingPos(1)   
+            self.kingPos[1] = self.calcKingPos(1)   
         
                      
     def boardMove(self, move_info, currPlayer):
         move = [move_info.start, move_info.end]
-        if move_info.start in self.board.kingPos[self.turn]:
-            self.kingPos[self.turn].remove(move_info.start)
-            self.kingPos[self.turn].append(move_info.end)
+        if move_info.start in self.kingPos[currPlayer]:
+            self.kingPos[currPlayer].remove(move_info.start)
+            self.kingPos[currPlayer].append(move_info.end)
   #      print(move)
   #      self.drawBoardState()
         remove = move_info.jumpOver
@@ -358,35 +355,37 @@ class Board:
         next = -1 if player == 0 else 1
         boardLimit = 0 if player == 0 else BOARD_SIZE-1
         # cell refers to a position tuple (row, col)
-
         for cell in self.currPos[player]:
             #check for diagonal left
             if cell in self.kingPos[player]:
                 #empty, regular move
-                if self.boardState[cell[0] - next][cell[1] - 1] == -1 and not hasJumps:
-                    temp = Move(cell, (cell[0] - next, cell[1] - 1))
-                    legalMoves.append(temp)
-                # has enemy, can jump it?
-                elif self.boardState[cell[0] - next][cell[1] - 1] == 1 - player:
-                    jumps = self.checkJump(cell, True, player, True)
-                    if len(jumps) != 0:
-                        # if first jump, clear out regular moves
-                        if not hasJumps:
-                            hasJumps = True
-                            legalMoves = []
-                        legalMoves.extend(jumps)
-                if self.boardState[cell[0] - next][cell[1] + 1] == -1 and not hasJumps:
-                    temp = Move(cell, (cell[0] - next, cell[1] - 1))
-                    legalMoves.append(temp)
-                elif self.boardState[cell[0] - next][cell[1] + 1] == 1 - player:
-                    jumps = self.checkJump(cell, False, player, True)
-                    if len(jumps) != 0:
-                        # if first jump, clear out regular moves
-                        if not hasJumps:
-                            hasJumps = True
-                            legalMoves = []
-                        legalMoves.extend(jumps)
-
+                if cell[1]!=0:
+                    if self.boardState[cell[0] - next][cell[1] - 1] == -1 and not hasJumps:
+                        temp = Move(cell, (cell[0] - next, cell[1] - 1))
+                        legalMoves.append(temp)
+                    # has enemy, can jump it?
+                    elif self.boardState[cell[0] - next][cell[1] - 1] == 1 - player:
+                        jumps = self.checkJump(cell, True, player, True)
+                        if len(jumps) != 0:
+                            # if first jump, clear out regular moves
+                            if not hasJumps:
+                                hasJumps = True
+                                legalMoves = []
+                            legalMoves.extend(jumps)
+                if cell[1] != BOARD_SIZE - 1:
+                    if self.boardState[cell[0] - next][cell[1] + 1] == -1 and not hasJumps:
+                        temp = Move(cell, (cell[0] - next, cell[1] + 1))
+                        legalMoves.append(temp)
+                    elif self.boardState[cell[0] - next][cell[1] + 1] == 1 - player:
+                        jumps = self.checkJump(cell, False, player, True)
+                        if len(jumps) != 0:
+                            # if first jump, clear out regular moves
+                            if not hasJumps:
+                                hasJumps = True
+                                legalMoves = []
+                            legalMoves.extend(jumps)
+            if cell[0] == boardLimit:
+                continue
             # diagonal right, only search if not at right edge of board
             if cell[1] != BOARD_SIZE - 1:
                 #empty, regular move
@@ -488,10 +487,10 @@ class Board:
                 if self.boardState[row][col] == player:
                     pos.append((row,col))
         return pos
-    def kingPos(self, player):
+    def calcKingPos(self, player):
         pos = []
         boardLimit = 0 if player == 0 else BOARD_SIZE-1
-        for cell in self.calcPos[player]:
+        for cell in self.currPos[player]:
             if cell[0] == boardLimit:
                 pos.append(cell)
         return pos
@@ -503,16 +502,20 @@ class Board:
         print ("\n------------------------")
         for row in range(BOARD_SIZE):
             for col in range(BOARD_SIZE):
-                if self.boardState[row][col] == -1:
-                    print("+ ", end = '')
+                if (row,col) in self.kingPos[0]:
+                    print("BK ", end = ' ')
+                elif (row,col) in self.kingPos[1]:
+                    print("WK ", end = ' ')
+                elif self.boardState[row][col] == -1:
+                    print("+ ", end = ' ')
                 elif self.boardState[row][col] == 1:
-                    print("W ", end = '')
+                    print("W ", end = ' ')
                 elif self.boardState[row][col] == 0:
-                    print ("B ", end = '')
+                    print ("B ", end = ' ')
             print ("| " + str(x))
             x -= 1
         print ("------------------------")
-        print ("A B C D E F G H\n")
+        print ("A  B  C  D  E  F  G  H\n")
 
     def setDefaultBoard(self):
         # reset board
@@ -537,7 +540,7 @@ def robot_move(move, colour):
     # Send to robot
     bxd.move_piece(start, end)
     # check for king piece
-    if ret[1][1] == "0" or ret[1][1] == "7":
+    if end == "0" or end == "7":
         # It's a king
         bxd.king_piece(ret[1], colour)
     if move.jump==True:
@@ -546,7 +549,7 @@ def robot_move(move, colour):
             print ("Taking pieces ", takePiece)
             bxd.take_piece(takePiece, colour)
     bxd.move_home()
-    return
+    return move
 
 
 def get_user_move(legal, colour):
@@ -580,8 +583,7 @@ def get_user_move(legal, colour):
             print ("Taking pieces ", takePiece)
             bxd.take_piece(takePiece, colour)
     # return to home 
-    bxd.move_home()
-    
+    bxd.move_home() 
     return move
 
 
