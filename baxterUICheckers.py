@@ -14,13 +14,11 @@ For use with BAxter Robot Draughts Game
 
 """
 
-
-
-
 # Load Baxter Robot actions
 import baxterDo_Dummy as bxd
 import getch
 from copy import deepcopy
+import math
 
 BOARD_SIZE = 8
 NUM_PLAYERS = 12
@@ -79,8 +77,9 @@ class Game:
             print(move.start, move.end, move.jump) #debug
             print (move.jumpOver) # debug
             if move.end[0] == 0 or move.end[0] == 7:
-                print("King added")
-                self.board.kingPos[self.turn].append(move.end)
+                if move.end not in self.board.kingPos[self.turn]:
+                    print("King added")
+                    self.board.kingPos[self.turn].append(move.end)
             # switch player after move
             self.turn = 1 - self.turn
         print("Game OVER")
@@ -156,20 +155,10 @@ class Game:
       # self, move_value, move, max_depth, total_nodes, max_cutoff, min_cutoff
       v = AB_Value(-999, None, node, 1, 0, 0)
       # depth cutoff
-      if node == DEPTH_LIMIT:
-         v.move_value = self.evaluation_function(state.board, state.origPlayer)
+      if node == DEPTH_LIMIT or len(actions) == 0:
+         v.move_value = self.evaluation_function(state.board, state.origPlayer, actions)
    #      print("Depth Cutoff. Eval value: "+str(v.move_value))
          return v      
-      if len(actions)==0:
-         # return Utility(state)
-         score = self.calcScore(state.board)
-         if score[state.origPlayer] > score[1-state.origPlayer]:
-            v.move_value = 100 + (2 * score[state.origPlayer] - score[1 - state.origPlayer])
-   #         print("(max) Terminal Node Score: "+str(v.move_value))
-         else:
-            v.move_value = -100 + (2 * score[state.origPlayer] - score[1 - state.origPlayer])
-   #         print("(max) Terminal Node Score: "+str(v.move_value))            
-         return v
       for a in actions:
          newState = AB_State(deepcopy(state.board), 1 - state.player, state.origPlayer)
          # RESULT(s,a)
@@ -201,20 +190,10 @@ class Game:
       # self, move_value, move, max_depth, total_nodes, max_cutoff, min_cutoff
       v = AB_Value(999, None, node, 1, 0, 0)
       # depth cutoff
-      if node == DEPTH_LIMIT:
-         v.move_value = self.evaluation_function(state.board, state.player)
+      if node == DEPTH_LIMIT or len(actions) == 0:
+         v.move_value = self.evaluation_function(state.board, state.player, actions)
    #      print("Depth Cutoff. Eval value: "+str(v.move_value))
-         return v
-      if len(actions)==0:
-         # return Utility(state)
-         score = self.calcScore(state.board)
-         if score[state.origPlayer] > score[1 - state.origPlayer]:
-            v.move_value = 100 + (2 * score[state.origPlayer] - score[1 - state.origPlayer])
-    #        print("(min) Terminal Node Score: "+str(v.move_value))            
-         else:
-            v.move_value = -100 + (2 * score[state.origPlayer] - score[1 - state.origPlayer])
-    #        print("(min) Terminal Node Score: "+str(v.move_value))
-         return v     
+         return v    
       for a in actions:
          newState = AB_State(deepcopy(state.board), 1 - state.player, state.origPlayer)
          newState.board.boardMove(a, state.player)
@@ -238,7 +217,26 @@ class Game:
 
     # returns a utility value for a non-terminal node
     # f(x) = 5(player piece in end)+3(player not in end)-7(opp in end)-3(opp not in end)
-    def evaluation_function(self, board, currPlayer):
+    def evaluation_function(self, board, currPlayer, actions):
+        if len(actions) == 0:
+            score = self.calcScore(board)
+            if score[0] > score[1]:
+                return -999
+            elif score[1] > score[0]:
+                return 999
+        next = -1 if currPlayer == 0 else 1
+        distance = 0.0
+        for i in board.currPos[currPlayer]:
+            for j in board.currPos[currPlayer]:
+                if i == j:
+                    continue
+                dx = abs(i[0] - j[0])
+                dy = abs(i[1] - j[1])
+                distance += math.sqrt(dx ** 2 + dy ** 2) 
+        distance  /= len(board.currPos[currPlayer])
+        score = 1.0/distance * next
+        return score
+        '''
         blk_king, blk_home_half, blk_opp_half = 0,0,0
         wt_king, wt_home_half, wt_opp_half = 0,0,0
         # black's pieces
@@ -267,7 +265,7 @@ class Game:
             return (black_score - white_score)
         else:
             return (white_score - black_score)       
-                 
+        '''      
 # wrapper for alpha-beta info
 # v = [move_value, move, max tree depth, # child nodes, # max/beta cutoff, # min/alpha cutoff]
 class AB_Value:
