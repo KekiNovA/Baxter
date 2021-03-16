@@ -24,6 +24,7 @@ class Game:
         self.remaining = [NUM_PLAYERS, NUM_PLAYERS]
         # default player is black
         self.player = player
+        self.computer = 1 if player == 0 else 0
         self.turn = 0
     def run(self):
         move = None 
@@ -85,7 +86,7 @@ class Game:
     def makeMove(self, move):
         self.board.boardMove(move, self.turn) # Update board
         if move.jump:
-            self.remaining[1-self.turn] -= len(move.jumpOver)
+            self.remaining[1 - self.turn] -= len(move.jumpOver)
             print("Removed " + str(len(move.jumpOver)) + " " + PLAYERS[1 - self.turn] + " pieces")
   
 
@@ -125,13 +126,47 @@ class Game:
         
     # state = board, player
     def alpha_beta(self, state):
-        result = self.max_value(state, -999, 999, 0)
-        print("Total nodes generated: " + str(result.nodes))
+        #result = self.max_value(state, -999, 999, 0)
+        result = self.minmax(state, -math.inf, math.inf, 0, True)
         print("Max depth: " + str(result.max_depth))
-        print("Max Val Cutoffs: " + str(result.max_cutoff))
-        print("Min Val Cutoffs: " + str(result.min_cutoff))
         return result.move
    
+    def minmax(self, state, alpha, beta, depth, maximizing):
+        actions = state.board.calcLegalMoves(state.player)
+        Main = AB_Value(-math.inf, None, depth) # -999  is just temparary
+        if depth == DEPTH_LIMIT:
+            Main.move_value = self.evaluation_function(state.board)
+            return Main
+        if maximizing == True:
+            Main.move_value = max_eval = -math.inf
+            if len(actions) == 0:
+                return Main
+            for a in actions:
+                temp = AB_State(deepcopy(state.board), 1 - state.player, state.originalPlayer)
+                temp.board.boardMove(a, state.player)
+                temp = self.minmax(temp, alpha, beta, depth + 1, False)
+                if temp.move_value > max_eval:
+                    Main.move_value = max_eval = temp.move_value
+                    Main.move = a
+                alpha = max(alpha, temp.move_value)
+                if beta <= alpha:
+                    break
+        else:
+            Main.move_value = min_eval = math.inf
+            if len(actions) == 0:
+                return Main
+            for a in actions:
+                temp = AB_State(deepcopy(state.board), 1 - state.player, state.originalPlayer)
+                temp.board.boardMove(a, state.player)
+                temp = self.minmax(temp, alpha, beta, depth + 1, True)
+                if temp.move_value < min_eval:
+                    Main.move_value = min_eval = temp.move_value
+                    Main.move = a
+                beta = min(beta, temp.move_value)
+                if beta <= alpha:
+                    break
+        return Main
+    '''
    # returns max value and action associated with value
     def max_value(self, state, alpha, beta, node):
       # if terminalTest(state)
@@ -200,10 +235,45 @@ class Game:
          if v.move_value < beta:
             beta = v.move_value
       return v
-
+    '''
     # returns a utility value for a non-terminal node
     # f(x) = 5(player piece in end)+3(player not in end)-7(opp in end)-3(opp not in end)
-    def evaluation_function(self, board, currPlayer, actions):
+    def evaluation_function(self, board):
+        result = 0
+        mine = 0
+        opp = 0
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
+                if (i,j) in board.currPos[self.computer]:
+                    mine += 1
+                    result += 5
+                    if (i,j) in board.kingPos[self.computer]:
+                        result += 5
+                    if i == 0 or j == 0 or i == 7 or j == 7:
+                        result += 7
+                    if i + 1 > 7 or j - 1 <  0 or i - 1 < 0 or j + 1 > 7:
+                        continue
+                    if (i + 1,j - 1) in board.currPos[self.player] and board.boardState[i - 1][j + 1] == "+":
+                        result -= 3
+                    if (i + 1, j + 1) in board.currPos[self.player] and board.boardState[i - 1][j - 1] == "+":
+                        result -= 3
+                    if (i - 1, j + 1) in board.kingPos[self.player] and board.boardState[i + 1][j + 1] == "+":
+                        result -= 3
+                    if (i - 1, j + 1) in board.kingPos[self.player] and board.boardState[i + 1][j - 1] == "+":
+                        result -= 3
+                    if i + 2 > 7 or i - 2 < 0:
+                        continue
+                    if (i + 1,j - 1) in board.kingPos[self.player] and board.boardState[i + 2][j - 2] == "+":
+                        result += 6
+                    if i + 2 > 7 or j + 2 > 7:
+                        continue
+                    if (i + 1, j + 1) in board.currPos[self.player] and board.boardState[i + 2][j + 2] == "+":
+                        result += 6
+                elif (i, j) in board.currPos[self.player]:
+                    opp += 1
+        
+        return result + (mine - opp) * 1000
+        '''
         if len(actions) == 0:
             score = self.calcScore(board)
             if score[0] > score[1]:
@@ -222,7 +292,7 @@ class Game:
         distance  /= len(board.currPos[currPlayer])
         score = 1.0/distance * next
         return score
-        '''
+
         blk_king, blk_home_half, blk_opp_half = 0,0,0
         wt_king, wt_home_half, wt_opp_half = 0,0,0
         # black's pieces
@@ -255,13 +325,10 @@ class Game:
 # wrapper for alpha-beta info
 # v = [move_value, move, max tree depth, # child nodes, # max/beta cutoff, # min/alpha cutoff]
 class AB_Value:
-    def __init__(self, move_value, move, max_depth, child_nodes, max_cutoff, min_cutoff):
+    def __init__(self, move_value, move, max_depth):
         self.move_value = move_value
         self.move = move
         self.max_depth = max_depth
-        self.nodes = child_nodes
-        self.max_cutoff = max_cutoff
-        self.min_cutoff = min_cutoff
          
 
 # wrapper for state used in alpha-beta
@@ -269,7 +336,7 @@ class AB_State:
    def __init__(self, boardState, currPlayer, originalPlayer):
       self.board = boardState
       self.player = currPlayer
-      self.origPlayer = originalPlayer
+      self.originalPlayer = originalPlayer
       
 class Move:
     def __init__(self, start, end, jump=False):
@@ -577,6 +644,7 @@ def GettingStarted():
     print("Welcome")
     bxd.move_home()
     player = None
+    # user choice 
     while player == None:
         try:
             player = int(input("Type 0 to play as Black or 1 to play as White"))
@@ -586,7 +654,8 @@ def GettingStarted():
             player == None
         if player == None:
             print("Try again.")
-    
+    # Let the game begin
+    Game(player).run()
 
 if __name__ == "__main__":
     GettingStarted()  #calls main function
