@@ -51,10 +51,6 @@ class Game:
                     else:
                         state = AB_State(self.board, self.turn, self.turn)
                         choice = self.alpha_beta(state)
-                        #choice = random.randint(0,len(legal)-1)  
-                        #choice = legal[choice]                            
-                        #print(legal)
-                        #print "Choice",[choice.start, choice.end]
 
                     self.makeMove(choice)
                     print("Computer chooses (" + str(choice.start) + ", " + str(choice.end) + ")")
@@ -64,9 +60,7 @@ class Game:
                     move = robot_move(choice, PLAYERS[self.turn]) # Note, also takes pieces as necesary
             print(move.start, move.end, move.jump) #debug
             print (move.jumpOver) # debug
-            if move.end[0] == 0 or move.end[0] == 7:
-                print("King added")
-                self.board.kingPos[self.turn].append(move.end)
+
             # switch player after move
             self.turn = 1 - self.turn
         print("Game OVER")
@@ -133,7 +127,8 @@ class Game:
    
     def minmax(self, state, alpha, beta, depth, maximizing):
         actions = state.board.calcLegalMoves(state.player)
-        Main = AB_Value(-math.inf, None, depth) # -999  is just temparary
+        Main = AB_Value(-math.inf, None, depth) 
+        Main.max_depth = DEPTH_LIMIT
         if depth == DEPTH_LIMIT:
             Main.move_value = self.evaluation_function(state.board)
             return Main
@@ -166,78 +161,9 @@ class Game:
                 if beta <= alpha:
                     break
         return Main
-    '''
-   # returns max value and action associated with value
-    def max_value(self, state, alpha, beta, node):
-      # if terminalTest(state)
-      actions = state.board.calcLegalMoves(state.player)
-      num_act = len(actions)
-      # v <- -inf
-      # self, move_value, move, max_depth, total_nodes, max_cutoff, min_cutoff
-      v = AB_Value(-999, None, node, 1, 0, 0)
-      # depth cutoff
-      if node == DEPTH_LIMIT or len(actions) == 0:
-         v.move_value = self.evaluation_function(state.board, state.origPlayer, actions)
-   #      print("Depth Cutoff. Eval value: "+str(v.move_value))
-         return v      
-      for a in actions:
-         newState = AB_State(deepcopy(state.board), 1 - state.player, state.origPlayer)
-         # RESULT(s,a)
-         newState.board.boardMove(a, state.player)
-         new_v = self.min_value(newState, alpha, beta, node+1)
-         # compute new values for nodes and cutoffs in recursion
-         if new_v.max_depth > v.max_depth:
-             v.max_depth = new_v.max_depth         
-         v.nodes += new_v.nodes
-         v.max_cutoff += new_v.max_cutoff
-         v.min_cutoff += new_v.min_cutoff
-         # v <- Max(v, MIN_VALUE(RESULT(s,a), alpha, beta))
-         if new_v.move_value > v.move_value:
-            v.move_value = new_v.move_value
-            v.move = a
-         if v.move_value >= beta:
-            v.max_cutoff += 1
-            return v
-         if v.move_value > alpha:
-            alpha = v.move_value
-      return v
 
-   # returns min value
-    def min_value(self, state, alpha, beta, node):
-      #if terminalTest(state)
-      actions = state.board.calcLegalMoves(state.player)
-      num_act = len(actions)
-      # v <- inf
-      # self, move_value, move, max_depth, total_nodes, max_cutoff, min_cutoff
-      v = AB_Value(999, None, node, 1, 0, 0)
-      # depth cutoff
-      if node == DEPTH_LIMIT or len(actions) == 0:
-         v.move_value = self.evaluation_function(state.board, state.player, actions)
-   #      print("Depth Cutoff. Eval value: "+str(v.move_value))
-         return v    
-      for a in actions:
-         newState = AB_State(deepcopy(state.board), 1 - state.player, state.origPlayer)
-         newState.board.boardMove(a, state.player)
-         new_v = self.max_value(newState, alpha, beta, node+1)
-         # compute new values for nodes and cutoffs in recursion
-         if new_v.max_depth > v.max_depth:
-             v.max_depth = new_v.max_depth
-         v.nodes += new_v.nodes
-         v.max_cutoff += new_v.max_cutoff
-         v.min_cutoff += new_v.min_cutoff
-         # v <- Min(v, MAX_VALUE(RESULT(s,a), alpha, beta))
-         if new_v.move_value < v.move_value:
-            v.move_value = new_v.move_value
-            v.move = a
-         if v.move_value <= alpha:
-            v.min_cutoff += 1
-            return v
-         if v.move_value < beta:
-            beta = v.move_value
-      return v
-    '''
     # returns a utility value for a non-terminal node
-    # f(x) = 5(player piece in end)+3(player not in end)-7(opp in end)-3(opp not in end)
+    # Optimized evaluation function
     def evaluation_function(self, board):
         result = 0
         mine = 0
@@ -273,55 +199,7 @@ class Game:
                     opp += 1
         
         return result + (mine - opp) * 1000
-        '''
-        if len(actions) == 0:
-            score = self.calcScore(board)
-            if score[0] > score[1]:
-                return -999
-            elif score[1] > score[0]:
-                return 999
-        next = -1 if currPlayer == 0 else 1
-        distance = 0.0
-        for i in board.currPos[currPlayer]:
-            for j in board.currPos[currPlayer]:
-                if i == j:
-                    continue
-                dx = abs(i[0] - j[0])
-                dy = abs(i[1] - j[1])
-                distance += math.sqrt(dx ** 2 + dy ** 2) 
-        distance  /= len(board.currPos[currPlayer])
-        score = 1.0/distance * next
-        return score
-
-        blk_king, blk_home_half, blk_opp_half = 0,0,0
-        wt_king, wt_home_half, wt_opp_half = 0,0,0
-        # black's pieces
-        for cell in range(len(board.currPos[0])):
-            # check pieces for king
-            if board.currPos[0][cell] in board.kingPos[0]:
-                blk_king +=1
-            # change to "print 'yes' if 0 < x < 0.5 else 'no'"
-            elif BOARD_SIZE/2 <= board.currPos[0][cell][0] < BOARD_SIZE:
-                blk_opp_half += 1
-            else:
-                blk_home_half += 1
-        # white's pieces
-        for cell in range(len(board.currPos[1])):
-            # check pieces for king
-            if board.currPos[1][cell] in board.kingPos[1]:
-                wt_king += 1
-            # opp pieces not at own end
-            elif 0 <= board.currPos[1][cell][0] < BOARD_SIZE/2:
-                wt_opp_half += 1
-            else:
-                wt_home_half += 1
-        white_score = (7 * wt_king) + (5 * wt_opp_half)+ (3 * wt_home_half)
-        black_score = (7 * blk_king) + (5 * blk_opp_half)+ (3 * blk_home_half)
-        if currPlayer == 0:
-            return (black_score - white_score)
-        else:
-            return (white_score - black_score)       
-        '''      
+             
 # wrapper for alpha-beta info
 # v = [move_value, move, max tree depth, # child nodes, # max/beta cutoff, # min/alpha cutoff]
 class AB_Value:
@@ -374,6 +252,8 @@ class Board:
                      
     def boardMove(self, move_info, currPlayer):
         move = [move_info.start, move_info.end]
+        if move_info.end[0] == 0 or move_info.end[0] == 7:
+            self.kingPos[currPlayer].append(move_info.end)
         if move_info.start in self.kingPos[currPlayer]:
             self.kingPos[currPlayer].remove(move_info.start)
             self.kingPos[currPlayer].append(move_info.end)
@@ -389,6 +269,8 @@ class Board:
             #remove jumped over enemies
             for enemy in move_info.jumpOver:
                 self.boardState[enemy[0]][enemy[1]] = -1
+                if enemy in self.kingPos[currPlayer]:
+                    self.kingPos[currPlayer].remove(currPlayer)
             # update currPos array
             # if its jump, the board could be in many configs, just recalc it
             self.currPos[0] = self.calcPos(0)
@@ -485,7 +367,7 @@ class Board:
                 if temp.end[0] + next > 0 and temp.end[0] + next < BOARD_SIZE - 1:
                     #enemy in top left of new square?
                     if temp.end[1] > 1 and self.boardState[temp.end[0] + next][temp.end[1] - 1] == 1 - player:
-                        test = self.checkJump(temp.end, True, player)
+                        test = self.checkJump(temp.end, True, player, kinging)
                         if test != []:
                             dbl_temp = deepcopy(temp) #deepcopy needed?
                             dbl_temp.end = test[0].end 
@@ -493,12 +375,12 @@ class Board:
                             jumps.append(dbl_temp)                      
                     # top right?
                     if temp.end[1] < BOARD_SIZE - 2 and self.boardState[temp.end[0] + next][temp.end[1] + 1] == 1 - player:
-                        test = self.checkJump(temp.end, False, player)                  
+                        test = self.checkJump(temp.end, False, player, kinging)                  
                         if test != []:
                             dbl_temp = deepcopy(temp) #deepcopy needed?
                             dbl_temp.end = test[0].end 
                             dbl_temp.jumpOver.extend(test[0].jumpOver)
-                            jumps.append(dbl_temp)                              
+                            jumps.append(dbl_temp)     
                 jumps.append(temp)
         else:
         #check top right
@@ -510,7 +392,7 @@ class Board:
                 if temp.end[0] + next > 0 and temp.end[0] + next < BOARD_SIZE - 1:
                     #enemy in top left of new square?
                     if temp.end[1] > 1 and self.boardState[temp.end[0] + next][temp.end[1] - 1] == 1 - player:
-                        test = self.checkJump(temp.end, True, player)
+                        test = self.checkJump(temp.end, True, player, kinging)
                         if test != []:
                             dbl_temp = deepcopy(temp) #deepcopy needed?
                             dbl_temp.end = test[0].end 
@@ -518,7 +400,7 @@ class Board:
                             jumps.append(dbl_temp)                              
                     # top right?
                     if temp.end[1] < BOARD_SIZE - 2 and self.boardState[temp.end[0] + next][temp.end[1] + 1] == 1 - player:
-                        test = self.checkJump(temp.end, False, player) 
+                        test = self.checkJump(temp.end, False, player, kinging) 
                         if test != []:
                             dbl_temp = deepcopy(temp) #deepcopy needed?
                             dbl_temp.end = test[0].end 
@@ -625,8 +507,6 @@ def get_user_move(legal, colour):
     for i in legal:
         if "ABCDEFGH"[i.start[1]] == ret[0][0] and "76543210"[i.start[0]] == ret[0][1] and "ABCDEFGH"[i.end[1]] == ret[1][0] and "76543210"[i.end[0]] == ret[1][1]:
             move = i
-        else:
-            print("error")
     # If jump exists call robot's function
     if move.jump==True:
         for piece in move.jumpOver:
@@ -647,7 +527,7 @@ def GettingStarted():
     # user choice 
     while player == None:
         try:
-            player = int(input("Type 0 to play as Black or 1 to play as White"))
+            player = int(input("Type 0 to play as Black or 1 to play as White: "))
         except:
             player == None
         if player != None and player not in [0, 1]:
