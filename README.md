@@ -1,1 +1,1 @@
-# Baxter
+# Baxter Checkers
